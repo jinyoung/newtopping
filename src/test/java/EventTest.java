@@ -1,6 +1,9 @@
 forEach: Policy
+fileName: {{namePascalCase}}StepDefinition.java
+path: {{boundedContext.name}}/src/test/java/{{options.package}}/common
 ---
-package moornmo.project;
+
+package {{options.package}};
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -24,15 +27,12 @@ import org.springframework.util.MimeTypeUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import moornmo.project.config.kafka.KafkaProcessor;
-import moornmo.project.domain.Inventory;
-import moornmo.project.domain.InventoryRepository;
-import moornmo.project.domain.InventoryUpdated;
-import moornmo.project.domain.OrderCreated;
+import {{options.package}}.config.kafka.KafkaProcessor;
+import {{options.package}}.domain.*;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class EventTest {
+public class {{namePascalCase}}EventTest {
 
    private static final Logger LOGGER = LoggerFactory.getLogger(EventTest.class);
    
@@ -41,32 +41,31 @@ public class EventTest {
    @Autowired
    private MessageCollector messageCollector;
    @Autowired
-   public InventoryRepository repository;
-   @Autowired
    private ApplicationContext applicationContext;
+   @Autowired
+   public InventoryRepository repository;
 
    @Test
    @SuppressWarnings("unchecked")
-   public void testAccepted() {
+   public void test{{namePascalCase}}() {
 
-      //given:  inventory에 상품 1번의 재고가 10개 있는 상태에서
+      //given:  
 
-      Inventory inventory = new Inventory();
-      inventory.setId(1L);
-      inventory.setStock(10L);
-      repository.save(inventory);
 
-      //when:   해당 상품에 대한 주문이벤트가 오면 
+      //when:  
       
-      OrderCreated o = new OrderCreated();
-      o.setOrderId("1");
-      o.setProductId(1L);
+   {{#incoming "Event" this}}
+      {{pascalCase name}} {{camelCase name}} = new {{pascalCase name}}();
+      {{#fieldDescriptors}}
+      {{../nameCamelCase}}.set{{pascalCase name}}(...);
+      {{/fieldDescriptors}}
 
+       
       InventoryApplication.applicationContext = applicationContext;
 
       ObjectMapper objectMapper = new ObjectMapper();
       try {
-         String msg = objectMapper.writeValueAsString(o);
+         String msg = objectMapper.writeValueAsString({{camelCase name}});
 
          processor.inboundTopic().send(
             MessageBuilder
@@ -75,28 +74,35 @@ public class EventTest {
                MessageHeaders.CONTENT_TYPE,
                MimeTypeUtils.APPLICATION_JSON
             )
-            .setHeader("type", o.getEventType())
+            .setHeader("type", {{camelCase name}}.getEventType())
             .build()
          );
 
          // will happen something here.
          
-         //then:   재고량이 1 줄어든 이벤트가 퍼블리시 되어야 할 것이다.
+         //then:   
 
          Message<String> received = (Message<String>) messageCollector.forChannel(processor.outboundTopic()).poll();
-         InventoryUpdated inventoryUpdated = objectMapper.readValue(received.getPayload(), InventoryUpdated.class);
+   {{/incoming}}
 
-         LOGGER.info("Order response received: {}", received.getPayload());
+      {{#outgoing "Event" this}}
+         {{pascalCase name}} {{camelCase name}} = objectMapper.readValue(received.getPayload(), {{pascalCase name}}.class);
+
+         LOGGER.info("Response received: {}", received.getPayload());
+
          assertNotNull(received.getPayload());
-         assertEquals(inventoryUpdated.getId(), o.getProductId());
-         assertEquals(inventoryUpdated.getStock(), (Long)(inventory.getStock() - 1));
+         assertEquals({{camelCase name}}.getId(), ...);
+
+      {{/outgoing}}
 
       } catch (JsonProcessingException e) {
          // TODO Auto-generated catch block
          assertTrue("exception", false);
       }
-      
+
+     
    }
 
 
 }
+
